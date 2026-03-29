@@ -35,13 +35,13 @@ def get_video():
             for chunk in r.iter_content(chunk_size=1024*1024):
                 yield chunk
 
-        return Response(
+       return Response(
             generate(),
-            content_type='video/mp4',
+            content_type='video/mp4', # Forzamos que el navegador/celular sepa que es video
             headers={
-                "Content-Disposition": "attachment; filename=video.mp4",
-                "Content-Length": r.headers.get('Content-Length'), # ESTO EVITA LA FALLA
-                "Connection": "keep-alive"
+                "Content-Disposition": "attachment; filename=video_asmoroot.mp4",
+                "Content-Length": r.headers.get('Content-Length'),
+                "Cache-Control": "no-cache"
             }
         )
     except Exception as e:
