@@ -1,5 +1,5 @@
 import requests
-from flask import Flask, request, Response
+from flask import Flask, request, Response, stream_with_context
 import yt_dlp
 import os
 
@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "AsmoRoot Proxy v3.2 Online ✅"
+    return "AsmoRoot Proxy v3.3 - Streaming Mode ✅"
 
 @app.route('/get_video', methods=['GET'])
 def get_video():
@@ -16,37 +16,32 @@ def get_video():
         return "URL requerida", 400
 
     try:
-        # 1. Extraer el link real con configuración de iPhone para evitar bloqueos
         ydl_opts = {
             'format': 'best',
             'quiet': True,
-            'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1'
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
             direct_link = info['url']
             
-        # 2. Conectar al video de TikTok
-        headers = {'User-Agent': ydl_opts['user_agent'], 'Referer': 'https://www.tiktok.com/'}
-        r = requests.get(direct_link, headers=headers, stream=True, timeout=60)
+        r = requests.get(direct_link, stream=True, timeout=120) # Aumentamos el timeout
         
-        # 3. Transmitir con "Content-Length" para que Android no falle
+        # Función generadora con contexto de flujo
+        @stream_with_context
         def generate():
-            for chunk in r.iter_content(chunk_size=1024*1024):
-                yield chunk
+            for chunk in r.iter_content(chunk_size=4096): # Chunks más pequeños para flujo constante
+                if chunk:
+                    yield chunk
 
-       return Response(
+        return Response(
             generate(),
-            content_type='video/mp4', # Forzamos que el navegador/celular sepa que es video
+            content_type='video/mp4',
             headers={
-                "Content-Disposition": "attachment; filename=video_asmoroot.mp4",
+                "Content-Disposition": "attachment; filename=video.mp4",
                 "Content-Length": r.headers.get('Content-Length'),
-                "Cache-Control": "no-cache"
+                "Connection": "keep-alive" # Mantiene el túnel abierto
             }
         )
     except Exception as e:
-        return f"Error: {str(e)}", 500
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+        return str(e), 500
